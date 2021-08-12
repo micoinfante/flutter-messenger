@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:messenger/model/message.dart';
 import 'package:messenger/widget/category_selector.dart';
 import 'package:messenger/widget/favorite_contacts.dart';
+import 'package:messenger/widget/recent_chats.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -8,6 +10,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final List<Message> chats = messages;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: <Widget>[
                 FavoriteContacts(),
+                RecentChats(),
               ],
             ),
           ))
