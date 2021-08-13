@@ -1,4 +1,5 @@
 import 'package:meta/meta.dart';
+import 'package:flutter/material.dart';
 
 import '../utils.dart';
 
@@ -12,6 +13,17 @@ class User {
   final String photoURL;
 
   User({required this.id, required this.name, required this.photoURL});
+
+  User.fromJson(Map<String, Object> json)
+      : this(
+          id: json['id']! as int,
+          name: json['name']! as String,
+          photoURL: json['photoURL']! as String,
+        );
+
+  Map<String, Object?> toJson() {
+    return {'id': id, 'name': name, 'photoURL': photoURL};
+  }
 }
 
 final User currentUser =

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:messenger/model/message.dart';
 import 'package:messenger/model/user.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ChatScreen extends StatefulWidget {
   final User user;
 
@@ -112,6 +115,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    CollectionReference usersCollection =
+        FirebaseFirestore.instance.collection('messages');
+
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
       appBar: AppBar(
@@ -143,20 +149,29 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30.0),
-                      topRight: Radius.circular(30.0),
-                    ),
-                    child: ListView.builder(
-                        reverse: true,
-                        padding: EdgeInsets.only(top: 15.0),
-                        itemCount: messages.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          final message = messages[index];
-                          final bool isMe = message.sender.id == currentUser.id;
-                          return _buildMessage(message, isMe);
-                        }),
-                  )),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(30.0),
+                        topRight: Radius.circular(30.0),
+                      ),
+                      child: StreamBuilder<QuerySnapshot>(
+                        stream: usersCollection.snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return Text('No Data');
+                          } else {
+                            return ListView.builder(
+                                reverse: true,
+                                padding: EdgeInsets.only(top: 15.0),
+                                itemCount: snapshot.data!.docs.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final message = messages[index];
+                                  final bool isMe =
+                                      message.sender.id == currentUser.id;
+                                  return _buildMessage(message, isMe);
+                                });
+                          }
+                        },
+                      ))),
             ),
             _buildMessageComposer(),
           ],
