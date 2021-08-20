@@ -17,10 +17,6 @@ class Message {
     required this.isLiked,
     required this.unread,
   });
-
-  Map<String, Object?> toJson() {
-    return
-  }
 }
 
 // FAVORITE CONTACTS
