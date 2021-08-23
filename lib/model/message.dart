@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:messenger/model/user.dart';
 
-import '../utils.dart';
-
 class Message {
+  final String? id;
   final User sender;
   final String message;
   final String time;
@@ -11,12 +10,18 @@ class Message {
   final bool unread;
 
   Message({
-    required this.sender,
-    required this.message,
-    required this.time,
-    required this.isLiked,
-    required this.unread,
-  });
+    String? id,
+    required User sender,
+    required String message,
+    required String time,
+    required bool isLiked,
+    required bool unread,
+  }) : this.id = id ?? UniqueKey().toString(),
+  this.sender = sender,
+  this.message = message,
+  this.time = time,
+  this.isLiked = isLiked,
+  this.unread = unread
 }
 
 // FAVORITE CONTACTS
