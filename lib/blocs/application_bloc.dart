@@ -81,7 +81,13 @@ class ApplicationBloc implements BlocBase {
   }
 
   void _onMessageReceived(MessageReceivedEvent event) {
-    _messages.add(event.message);
+    final user = User(id: 0, name: "Test", photoURL: "");
+    _messages.add(IncomingMessage(
+        sender: user,
+        message: event.message,
+        time: DateTime.now().toString(),
+        isLiked: false,
+        unread: false));
     _notify();
   }
 
