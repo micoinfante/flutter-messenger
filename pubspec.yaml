@@ -37,6 +37,8 @@ dependencies:
   protobuf: ^2.0.0
   grpc: ^3.0.2
   uuid: ^3.0.4
+  rxdart: ^0.27.1
+  shimmer: ^2.0.0
 
 dev_dependencies:
   flutter_test:
