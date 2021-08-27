@@ -21,7 +21,8 @@ class MessageSendFailedEvent {
 }
 
 class MessageReceivedEvent {
-  final Message message;
+  // todo change data type to Message
+  final String message;
 
   MessageReceivedEvent({required this.message});
 }

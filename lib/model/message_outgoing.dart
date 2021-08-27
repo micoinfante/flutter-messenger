@@ -23,4 +23,14 @@ class OutgoingMessage extends Message {
             time: time,
             isLiked: isLiked,
             unread: unread);
+
+  OutgoingMessage.copy(OutgoingMessage original)
+      : this.status = original.status,
+        super(
+            id: original.id,
+            sender: original.sender,
+            message: original.message,
+            time: original.time,
+            isLiked: original.isLiked,
+            unread: original.unread);
 }

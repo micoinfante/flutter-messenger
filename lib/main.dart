@@ -1,14 +1,75 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:messenger/model/message_incoming.dart';
 import 'package:messenger/screens/home_screen.dart';
 
-Future<void> main() async {
-  await Firebase.initializeApp();
-  runApp(MyApp());
+import 'package:messenger/api/chat_service.dart';
+import 'package:messenger/blocs/application_bloc.dart';
+import 'package:messenger/blocs/bloc_provider.dart';
+import 'package:messenger/blocs/message_event.dart';
+
+import 'model/message_outgoing.dart';
+
+void main() {
+  return runApp(BlocProvider<ApplicationBloc>(
+    bloc: ApplicationBloc(),
+    child: MyApp(),
+  ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   // This widget is the root of your application.
+  @override
+  State<StatefulWidget> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late ApplicationBloc _appBloc;
+  late ChatService _service;
+
+  bool _isInit = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInit == false) {
+      _appBloc = BlocProvider.of<ApplicationBloc>(context)!;
+      _service = ChatService(
+          onMessageSent: _onMessageSent,
+          onMessageSendFailed: _onMessageSendFailed,
+          onMessageReceived: _onMessageReceived,
+          onMessageReceivedFailed: _onMessageReceiveFailed);
+      _service.start();
+
+      _listenMessagesToSend();
+
+      if (mounted) {
+        setState(() {
+          _isInit = true;
+        });
+      }
+    }
+  }
+
+  void _listenMessagesToSend() async {
+    await for (var event in _appBloc.outMessageSend) {
+      var s = event.message;
+      var out = OutgoingMessage(
+          sender: s.sender,
+          message: s.message,
+          time: s.time,
+          isLiked: s.isLiked,
+          unread: s.unread);
+      _service.send(out);
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _service.shutdown();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -21,80 +82,28 @@ class MyApp extends StatelessWidget {
       home: HomeScreen(),
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  final String title;
-
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  /// 'outgoing message sent to the server' event
+  void _onMessageSent(MessageSentEvent event) {
+    debugPrint('Message "${event.message}" sent to the server');
+    _appBloc.inMessageSent.add(event);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+  /// 'failed to send message' event
+  void _onMessageSendFailed(MessageSendFailedEvent event) {
+    debugPrint(
+        'Failed to send message "${event.id}" to the server: ${event.error}');
+    _appBloc.inMessageSendFailed.add(event);
+  }
+
+  /// 'new incoming message received from the server' event
+  void _onMessageReceived(MessageReceivedEvent event) {
+    debugPrint('Message received from the server: ${event.message}');
+    _appBloc.inMessageReceived.add(event);
+  }
+
+  /// 'failed to receive messages' event
+  void _onMessageReceiveFailed(MessageReceiveFailedEvent event) {
+    debugPrint('Failed to receive messages from the server: ${event.error}');
   }
 }
