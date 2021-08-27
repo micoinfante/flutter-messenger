@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:messenger/blocs/application_bloc.dart';
+import 'package:messenger/blocs/bloc_provider.dart';
+import 'package:messenger/blocs/message_event.dart';
 import 'package:messenger/model/message.dart';
+import 'package:messenger/model/message_incoming.dart';
+import 'package:messenger/model/message_outgoing.dart';
 import 'package:messenger/model/user.dart';
+import 'package:flutter/cupertino.dart';
 
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:messenger/widget/chat_message.dart';
+import 'package:messenger/widget/chat_message_incoming.dart';
+import 'package:messenger/widget/chat_message_outgoing.dart';
+import 'package:uuid/uuid.dart';
 
 class ChatScreen extends StatefulWidget {
   final User user;
@@ -13,7 +21,31 @@ class ChatScreen extends StatefulWidget {
   _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+  late ApplicationBloc _appBloc;
+  final List<ChatMessage> _messages = <ChatMessage>[];
+  final TextEditingController _textEditingController = TextEditingController();
+  bool _isComposing = false;
+  bool _isInit = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_isInit == false) {
+      _appBloc = BlocProvider.of<ApplicationBloc>(context)!;
+      _isInit = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    for (ChatMessage message in _messages) {
+      message.animationController.dispose();
+    }
+  }
+
   _buildMessage(Message message, bool isMe) {
     final Container msg = Container(
         margin: isMe
@@ -78,6 +110,90 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _handleSubmitted(String text) {
+    _isComposing = false;
+    _appBloc.inNewMessageCreated.add(MessageNewCreatedEvent(
+        message: IncomingMessage(
+            id: Uuid().v1(),
+            isLiked: false,
+            message: text,
+            sender: currentUser,
+            time: DateTime.now().toString(),
+            unread: true)));
+    showAlertDialog(context);
+  }
+
+  void _updateMessages(List<Message> messages) {
+    for (var message in messages) {
+      int i = _messages.indexWhere((msg) => msg.message.id == message.id);
+      if (i != -1) {
+        // update existing message
+        print('Got outgoing message ${message.id}}');
+        if (message is OutgoingMessage) {
+          var chatMessage = _messages[i];
+          if (chatMessage is OutgoingChatMessage) {
+            if (chatMessage.message.status != message.status) {
+              chatMessage.animationController.dispose();
+              _messages[i] = OutgoingChatMessage(
+                  message: OutgoingMessage.copy(message),
+                  animationController: AnimationController(
+                    duration: Duration.zero,
+                    vsync: this,
+                  ));
+            }
+            _messages[i].animationController.forward();
+          } else {
+            assert(false, 'Message must be OutcomingMessage type');
+          }
+        }
+      } else {
+        late ChatMessage chatMessage;
+        var animationController = AnimationController(
+            vsync: this, duration: Duration(milliseconds: 700));
+        if (message is OutgoingMessage) {
+          chatMessage = OutgoingChatMessage(
+              message: OutgoingMessage.copy(message),
+              animationController: animationController);
+        } else if (message is IncomingMessage) {
+          chatMessage = IncomingChatMessage(
+              message: IncomingMessage.copy(message),
+              animationController: animationController);
+        } else {
+          assert(false, 'unknown message type');
+        }
+        _messages.insert(0, chatMessage);
+        chatMessage.animationController.forward();
+      }
+    }
+  }
+
+  // For debugging purpose
+  showAlertDialog(BuildContext context) {
+    Widget okButton = TextButton(
+      child: Text("OK"),
+      onPressed: () {
+        Navigator.of(context).pop();
+      },
+    );
+
+    // Create AlertDialog
+    AlertDialog alert = AlertDialog(
+      title: Text("Message sent"),
+      content: Text(""),
+      actions: [
+        okButton,
+      ],
+    );
+
+    // show the dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return alert;
+      },
+    );
+  }
+
   _buildMessageComposer() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.0),
@@ -94,16 +210,25 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: TextField(
               textCapitalization: TextCapitalization.sentences,
-              onChanged: (value) {
-                setState(() {});
+              textInputAction: TextInputAction.send,
+              controller: _textEditingController,
+              onChanged: (String text) {
+                setState(() {
+                  _isComposing = text.length > 0;
+                });
               },
+              onSubmitted: _isComposing ? _handleSubmitted : null,
               decoration: InputDecoration.collapsed(
                 hintText: 'Send a message...',
               ),
             ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              if (_isComposing) {
+                _handleSubmitted(_textEditingController.text);
+              }
+            },
             icon: Icon(Icons.send),
             iconSize: 25.0,
             color: Theme.of(context).primaryColor,
@@ -115,9 +240,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    CollectionReference usersCollection =
-        FirebaseFirestore.instance.collection('messages');
-
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
       appBar: AppBar(
@@ -153,23 +275,26 @@ class _ChatScreenState extends State<ChatScreen> {
                         topLeft: Radius.circular(30.0),
                         topRight: Radius.circular(30.0),
                       ),
-                      child: StreamBuilder<QuerySnapshot>(
-                        stream: usersCollection.snapshots(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return Text('No Data');
-                          } else {
-                            return ListView.builder(
-                                reverse: true,
-                                padding: EdgeInsets.only(top: 15.0),
-                                itemCount: snapshot.data!.docs.length,
-                                itemBuilder: (BuildContext context, int index) {
-                                  final message = messages[index];
-                                  final bool isMe =
-                                      message.sender.id == currentUser.id;
-                                  return _buildMessage(message, isMe);
-                                });
+                      child: StreamBuilder<List<Message>>(
+                        stream: _appBloc.outMessages,
+                        builder:
+                            (context, AsyncSnapshot<List<Message>> snapshot) {
+                          if (snapshot.hasError) {
+                            return Text("Error: ${snapshot.error}");
+                          } else if (snapshot.hasData) {
+                            _updateMessages(snapshot.data!);
                           }
+                          return ListView.builder(
+                            reverse: true,
+                            padding: EdgeInsets.only(top: 15.0),
+                            itemCount: _messages.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final message = _messages[index].message;
+                              final bool isMe =
+                                  message.sender.id == currentUser.id;
+                              return _buildMessage(message, isMe);
+                            },
+                          );
                         },
                       ))),
             ),

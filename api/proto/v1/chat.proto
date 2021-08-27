@@ -10,6 +10,10 @@ message Message {
   string text = 1;
 }
 
+message User {
+
+}
+
 service ChatService {
   // Send sends message to the server
   rpc Send(google.protobuf.StringValue) returns (google.protobuf.Empty) {}

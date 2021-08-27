@@ -16,12 +16,12 @@ class Message {
     required String time,
     required bool isLiked,
     required bool unread,
-  }) : this.id = id ?? UniqueKey().toString(),
-  this.sender = sender,
-  this.message = message,
-  this.time = time,
-  this.isLiked = isLiked,
-  this.unread = unread
+  })  : this.id = id ?? UniqueKey().toString(),
+        this.sender = sender,
+        this.message = message,
+        this.time = time,
+        this.isLiked = isLiked,
+        this.unread = unread;
 }
 
 // FAVORITE CONTACTS
